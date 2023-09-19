@@ -9,6 +9,7 @@ Status Public on Feb 20, 2023
 Title: Human germline biallelic complete NFAT1 deficiency causes the
 triad of joint contractures, osteochondromas, and susceptibility to B
 cell malignancy [Bulk]
+![Screenshot 2023-09-19 165648](https://github.com/liamg15/RNAseq/assets/71047301/17b15d7b-d99f-4148-ba09-83ce0fc5f1c2)
 
 Organism: Homo sapiens
 
