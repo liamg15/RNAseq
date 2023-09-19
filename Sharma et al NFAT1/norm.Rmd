@@ -1,0 +1,26 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-09-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(edgeR)
+library(limma)
+library(Glimma)
+library(gplots)
+library(org.Mm.eg.db)
+```
+
+```{r}
+data <- read.csv(here("GSE193414_rawcounts.csv"))
+
+meta <- data[1]
+scaled <- scale(data[2:19])
+
+cbind(meta, scaled)
+```
+

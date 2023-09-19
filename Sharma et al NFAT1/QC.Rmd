@@ -1,0 +1,138 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-09-15"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(edgeR)
+library(limma)
+library(Glimma)
+library(gplots)
+library(org.Mm.eg.db)
+library(RColorBrewer)
+library(vioplot)
+```
+
+# Pre-processing
+```{r Load count data}
+seqdata <- read.delim(here("GSE193414_rawcounts.txt"), stringsAsFactors = FALSE) %>% # Import count data from this folder using here()
+  drop_na() # Remove NAs
+
+rownames(seqdata) <- seqdata[,1] # Genes to row names (column 1 [`X`] -> row names)
+seqdata <- seqdata[,2:19] # Isolate count columns
+
+met <- rownames(seqdata) # Save the meta data (gene annotation (row names))
+
+head(seqdata) # Count data (rows = gene, columns = sample)
+```
+
+```{r Counts per million}
+myCPM <- cpm(seqdata, normalized.lib.sizes=TRUE) # Obtain counts per million (CPM)
+```
+
+```{r Set threshold of count data}
+thresh <- myCPM > 0.5 # Set threshold: 0.5
+
+table(rowSums(thresh))
+```
+
+```{r Filter low count genes}
+keep <- rowSums(thresh) >= 0.5 # over 500,000 copies threshold applied to data
+
+counts.keep <- seqdata[keep,]
+counts.keep
+```
+
+```{r Verify threshold corresponds to count of 10-15}
+par(mfrow = c(1,2))
+# Let's have a look and see whether our threshold of 0.5 does indeed correspond to a count of about 10-15
+# We will look at the first sample
+plot(myCPM[,2],seqdata[,2])
+# Let us limit the x and y-axis so we can actually look to see what is happening at the smaller counts
+plot(myCPM[,1],seqdata[,1],ylim=c(0,50),xlim=c(0,3))
+# Add a vertical line at 0.5 CPM
+abline(v=0.5,h = 10, col = "blue")
+
+```
+
+```{r Create differential gene expression list}
+dgeObj <- DGEList(counts.keep, remove.zeros =   TRUE)
+
+dge  <-  calcNormFactors(object = dgeObj, method = "TMM")
+# have a look at dgeObj
+dgeObj
+
+# See what slots are stored in dgeObj
+names(dgeObj)
+
+# Library size information is stored in the samples slot
+dgeObj$samples
+```
+
+# Quality Control
+```{r Check total counts of genes per sample}
+dgeObj$samples$lib.size
+
+# The names argument tells the barplot to use the sample names on the x-axis
+# The las argument rotates the axis names
+barplot(dgeObj$samples$lib.size,las=2, ylim = c(2e7,2.6e7),xpd = F)
+# Add a title to the plot
+```
+
+```{r Log counts}
+# Get log2 counts per million
+counts <- cpm(dgeObj,normalized.lib.sizes = T) 
+logcounts <- data.frame(log2(counts + 1)) # log2 counts
+# Check distributions of samples using boxplots
+boxplot(logcounts, xlab="", ylab="Log2 counts per million",las=2)
+# Let's add a blue horizontal line that corresponds to the median logCPM
+abline(h=median(logcounts),col="blue")
+title("Boxplots of logCPMs (unnormalised)")
+vioplot(logcounts, xlab="", ylab="Log2 counts per million",las=2)
+# Let's add a blue horizontal line that corresponds to the median logCPM
+abline(h=median(logcounts),col="blue")
+```
+
+```{r}
+meta <- data.frame(id = colnames(seqdata)) %>% 
+  separate(id, into = c("id","stim"), sep = "_") %>% 
+  mutate(day = gsub("P|Res", "", id),
+         id = gsub("[0-9]","", id)) %>% 
+  drop_na()
+rownames(meta) <- colnames(seqdata[,2:19])
+
+meta
+```
+
+```{r}
+
+test.met <- meta[meta$stim == "PMAIono", ]
+test.dat <- logcounts[, rownames(test.met)]
+design <- model.matrix(~ id, data = test.met)
+fit <- lmFit(test.dat, design)
+fit <- eBayes(fit)
+
+PMAiono_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
+
+test.met <- meta[meta$stim == "IL1B", ]
+test.dat <- logcounts[, rownames(test.met)]
+design <- model.matrix(~ id, data = test.met)
+fit <- lmFit(test.dat, design)
+fit <- eBayes(fit)
+
+IL1B_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
+
+test.met <- meta[meta$stim == "unstim", ]
+test.dat <- logcounts[, rownames(test.met)]
+design <- model.matrix(~ id, data = test.met)
+fit <- lmFit(test.dat, design)
+fit <- eBayes(fit)
+
+unstim_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
+
+```
