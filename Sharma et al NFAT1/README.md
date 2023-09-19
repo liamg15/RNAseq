@@ -36,7 +36,7 @@ Contact:
 
 -   Stuart E Turvey
 
--   E-mail(s): [sturvey\@cw.bc.ca](mailto:sturvey@cw.bc.ca){.email}
+-   E-mail(s): [sturvey\@cw.bc.ca](mailto:sturvey@cw.bc.ca)
 
 -   Organization: BC Children's Hospital Research Institute
 
