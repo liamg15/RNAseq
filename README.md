@@ -1,2 +1,1 @@
-# RNAseq
-RNA sequencing analysis pipelines
+# RNA sequencing analysis pipelines (under development)
