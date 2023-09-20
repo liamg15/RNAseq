@@ -15,12 +15,35 @@ library(gplots)
 library(org.Mm.eg.db)
 ```
 
+```{r Load data}
+load("processed.data")
+```
+
 ```{r}
-data <- read.csv(here("GSE193414_rawcounts.csv"))
+# Compute the variance each gene represents in all DGE
+var_genes <- apply(logcounts,1,var)
+head(var_genes)
 
-meta <- data[1]
-scaled <- scale(data[2:19])
+# Select the top 100 variable genes in decreasing order
+select_var <- names(sort(var_genes, decreasing=TRUE))[1:100]
+head(select_var)
+```
 
-cbind(meta, scaled)
+```{r}
+# Extract the top 100 genes from logcounts
+highly_variable_lcpm <- logcounts[select_var,]
+
+dim(highly_variable_lcpm) # 100 genes, 18 samples
+```
+
+```{r}
+## Get some nicer colours
+mypalette <- brewer.pal(11,"RdYlBu")
+morecols <- colorRampPalette(mypalette)
+# Set up colour vector for celltype variable
+col.cell <- c("purple","orange")[meta$stim]
+
+# Plot the heatmap
+heatmap.2(highly_variable_lcpm, col=rev(morecols(50)), trace = "none", main="Top 100 most variable genes across samples", ColSideColors=col.cell, scale="row")
 ```
 
