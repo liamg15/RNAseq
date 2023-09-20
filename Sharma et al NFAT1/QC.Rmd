@@ -154,3 +154,9 @@ fit <- eBayes(fit)
 IL1B_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
 
 ```
+
+# Save objects (DGE and CPM)
+```{r}
+save(seqdata, myCPM, dgeObj, meta, logcounts, file = "processed.data")
+```
+
