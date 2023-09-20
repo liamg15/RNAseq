@@ -5,7 +5,6 @@ date: "2023-09-15"
 ---
 
 ```{r setup, include=FALSE}
-
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(here)
@@ -16,11 +15,13 @@ library(gplots)
 library(org.Mm.eg.db)
 library(RColorBrewer)
 library(vioplot)
+library(ggfortify)
+here()
 ```
 
 # Pre-processing
 ```{r Load count data}
-seqdata <- read.delim(here("GSE193414_rawcounts.txt"), stringsAsFactors = FALSE) %>% # Import count data from this folder using here()
+seqdata <- read.delim(here("Sharma et al NFAT1/GSE193414_rawcounts.txt"), stringsAsFactors = FALSE) %>% # Import count data from this folder using here()
   drop_na() # Remove NAs
 
 rownames(seqdata) <- seqdata[,1] # Genes to row names (column 1 [`X`] -> row names)
@@ -31,6 +32,19 @@ met <- rownames(seqdata) # Save the meta data (gene annotation (row names))
 head(seqdata) # Count data (rows = gene, columns = sample)
 ```
 
+```{r Save meta data}
+meta <- data.frame(id = colnames(seqdata)) %>% 
+  separate(id, into = c("id","stim"), sep = "_") %>% 
+  mutate(day = gsub("P|Res", "", id),
+         id = gsub("[0-9]","", id)) %>% 
+  drop_na()
+
+rownames(meta) <- colnames(seqdata[,1:18])
+
+meta
+```
+
+# Processing - CPM, DGE
 ```{r Counts per million}
 myCPM <- cpm(seqdata, normalized.lib.sizes=TRUE) # Obtain counts per million (CPM)
 ```
@@ -38,11 +52,14 @@ myCPM <- cpm(seqdata, normalized.lib.sizes=TRUE) # Obtain counts per million (CP
 ```{r Set threshold of count data}
 thresh <- myCPM > 0.5 # Set threshold: 0.5
 
+# There are 11875 genes with expression levels above 0.5 CPM in all 18 samples
 table(rowSums(thresh))
+
+hist(table(rowSums(thresh)),breaks = 100)
 ```
 
 ```{r Filter low count genes}
-keep <- rowSums(thresh) >= 0.5 # over 500,000 copies threshold applied to data
+keep <- rowSums(thresh) > 0.5 # over 500,000 copies threshold applied to data
 
 counts.keep <- seqdata[keep,]
 counts.keep
@@ -56,14 +73,16 @@ plot(myCPM[,2],seqdata[,2])
 # Let us limit the x and y-axis so we can actually look to see what is happening at the smaller counts
 plot(myCPM[,1],seqdata[,1],ylim=c(0,50),xlim=c(0,3))
 # Add a vertical line at 0.5 CPM
-abline(v=0.5,h = 10, col = "blue")
+abline(v=0.5, h = 10, col = "blue")
 
 ```
 
 ```{r Create differential gene expression list}
+# Create a  differential gene expression list
 dgeObj <- DGEList(counts.keep, remove.zeros =   TRUE)
 
 dge  <-  calcNormFactors(object = dgeObj, method = "TMM")
+
 # have a look at dgeObj
 dgeObj
 
@@ -84,32 +103,39 @@ barplot(dgeObj$samples$lib.size,las=2, ylim = c(2e7,2.6e7),xpd = F)
 # Add a title to the plot
 ```
 
-```{r Log counts}
+```{r QC1: Log2 counts + 1 to achieve bell curve shape?}
 # Get log2 counts per million
 counts <- cpm(dgeObj,normalized.lib.sizes = T) 
-logcounts <- data.frame(log2(counts + 1)) # log2 counts
+logcounts <- (log2(counts + 1)) # log2 counts
+
+
 # Check distributions of samples using boxplots
 boxplot(logcounts, xlab="", ylab="Log2 counts per million",las=2)
 # Let's add a blue horizontal line that corresponds to the median logCPM
-abline(h=median(logcounts),col="blue")
+abline(h=median(logcounts),col="red")
 title("Boxplots of logCPMs (unnormalised)")
 vioplot(logcounts, xlab="", ylab="Log2 counts per million",las=2)
 # Let's add a blue horizontal line that corresponds to the median logCPM
-abline(h=median(logcounts),col="blue")
+abline(h=median(logcounts),col="red")
 ```
 
-```{r}
-meta <- data.frame(id = colnames(seqdata)) %>% 
-  separate(id, into = c("id","stim"), sep = "_") %>% 
-  mutate(day = gsub("P|Res", "", id),
-         id = gsub("[0-9]","", id)) %>% 
-  drop_na()
-rownames(meta) <- colnames(seqdata[,2:19])
+```{r QC2: Treatments cluster together?}
+prc <- prcomp(t(seqdata))
 
-meta
+# Treatments cluster along PC1 and PC2 - the threshold seems to do a good job
+autoplot(prc, data = meta, color = "stim", scale = T, label = T, label.size = 2) +
+  scale_color_brewer(palette = "Set1") +
+  theme_light()
 ```
 
-```{r}
+```{r QC3: Unstimulated NFATC2 expression high? No other gene majorly upregulated in unstimulated?}
+test.met <- meta[meta$stim == "unstim", ]
+test.dat <- logcounts[, rownames(test.met)]
+design <- model.matrix(~ id, data = test.met)
+fit <- lmFit(test.dat, design)
+fit <- eBayes(fit)
+
+unstim_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
 
 test.met <- meta[meta$stim == "PMAIono", ]
 test.dat <- logcounts[, rownames(test.met)]
@@ -126,13 +152,5 @@ fit <- lmFit(test.dat, design)
 fit <- eBayes(fit)
 
 IL1B_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
-
-test.met <- meta[meta$stim == "unstim", ]
-test.dat <- logcounts[, rownames(test.met)]
-design <- model.matrix(~ id, data = test.met)
-fit <- lmFit(test.dat, design)
-fit <- eBayes(fit)
-
-unstim_hits <- topTable(fit, p.value = 0.025, number = 1000) # Patient - Rescue
 
 ```
