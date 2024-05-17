@@ -46,7 +46,7 @@ meta
 
 # Processing - CPM, DGE
 ```{r Counts per million}
-myCPM <- cpm(seqdata, normalized.lib.sizes=TRUE) # Obtain counts per million (CPM)
+myCPM <- cpm(seqdata, normalized.lib.sizes=T) # Obtain counts per million (CPM)
 ```
 
 ```{r Set threshold of count data}

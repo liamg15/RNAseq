@@ -6,6 +6,10 @@ date: "2023-09-15"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#install.packages("BiocManager", repos = "https://cloud.r-project.org")
+#BiocManager::install('edgeR')
+#BiocManager::install('Glimma')
+#BiocManager::install('org.Mm.eg.db')
 library(tidyverse)
 library(here)
 library(edgeR)
